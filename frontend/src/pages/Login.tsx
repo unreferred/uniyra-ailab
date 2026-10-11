@@ -26,19 +26,19 @@ export default function Login() {
   return (
     <AuthShell>
       <form onSubmit={submit} className="w-full max-w-sm space-y-5 fade-in-up motion-reduce:[animation:none]" data-testid="login-form">
-        <div className="space-y-1">
+        <div className="space-y-1 text-center sm:text-left">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Sign in</h2>
           <p className="text-sm text-muted-foreground">Welcome back to your laboratory.</p>
         </div>
         <ErrorNote message={error} />
         <div className="space-y-1.5">
           <label htmlFor="login-email" className="text-xs font-medium text-muted-foreground">Email</label>
-          <Input id="login-email" data-testid="login-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input id="login-email" data-testid="login-email" type="email" placeholder="you@company.com" autoComplete="email" className="h-11 rounded-lg border-border/70 bg-background/60 placeholder:text-muted-foreground/60 focus-visible:border-[hsl(var(--brand-indigo))] focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-indigo))]/25" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="login-password" className="text-xs font-medium text-muted-foreground">Password</label>
           <div className="relative">
-            <Input id="login-password" data-testid="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" className="pr-10" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <Input id="login-password" data-testid="login-password" type={showPassword ? "text" : "password"} placeholder="••••••••" autoComplete="current-password" className="h-11 rounded-lg border-border/70 bg-background/60 pr-10 placeholder:text-muted-foreground/60 focus-visible:border-[hsl(var(--brand-indigo))] focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-indigo))]/25" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
@@ -50,7 +50,7 @@ export default function Login() {
             </button>
           </div>
         </div>
-        <Button type="submit" data-testid="login-submit" className="w-full" disabled={loading}>
+        <Button type="submit" data-testid="login-submit" className="h-11 w-full rounded-lg bg-[hsl(var(--brand-indigo))] text-white shadow-sm hover:bg-[hsl(var(--brand-indigo))]/90 focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-indigo))]/40" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-label="Signing in" /> : "Sign in"}
         </Button>
         <p className="text-center text-sm text-muted-foreground">
