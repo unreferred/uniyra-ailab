@@ -94,10 +94,30 @@ def _provider_public(p: dict) -> dict:
 
 
 # ------------------------------------------------------------- providers
+# Safe provider lifecycle: providers are soft-deleted (tombstoned with
+# ``deleted_at`` + ``enabled=False`` + revoked key material) so historical
+# runs/messages/telemetry that reference them stay intact and readable, while
+# tombstoned providers can never execute again (no key, excluded from active
+# lists and rejected during resolution). Deletion is idempotent and always
+# owner-scoped by the repository calls below.
+def _provider_deleted(p: dict) -> bool:
+    return bool(p and p.get("deleted_at"))
+
+
+def _tombstone_patch() -> dict:
+    ts = now_iso()
+    return {"deleted_at": ts, "enabled": False, "api_key_enc": None, "updated_at": ts}
+
+
+async def _live_providers(owner_id: str):
+    """Providers not soft-deleted (active list / selector source of truth)."""
+    items = await repo.providers.list({"owner_id": owner_id}, sort_field="created_at", descending=False)
+    return [p for p in items if not _provider_deleted(p)]
+
+
 @router.get("/providers")
 async def list_providers(user: dict = Depends(get_current_user)):
-    items = await repo.providers.list({"owner_id": user["id"]}, sort_field="created_at", descending=False)
-    return [_provider_public(p) for p in items]
+    return [_provider_public(p) for p in await _live_providers(user["id"])]
 
 
 @router.post("/providers")
@@ -126,7 +146,7 @@ async def create_provider(body: ProviderCreate, user: dict = Depends(get_current
 @router.patch("/providers/{provider_id}")
 async def update_provider(provider_id: str, body: ProviderUpdate, user: dict = Depends(get_current_user)):
     provider = await repo.providers.get(provider_id, user["id"])
-    if not provider:
+    if not provider or _provider_deleted(provider):
         raise HTTPException(status_code=404, detail="Provider not found")
     patch = {}
     data = body.model_dump(exclude_unset=True)
@@ -147,19 +167,40 @@ async def update_provider(provider_id: str, body: ProviderUpdate, user: dict = D
 
 @router.delete("/providers/{provider_id}")
 async def delete_provider(provider_id: str, user: dict = Depends(get_current_user)):
-    if not await repo.providers.get(provider_id, user["id"]):
+    """Soft-delete a provider, idempotently and scoped to the owner.
+
+    The provider is tombstoned (never hard-deleted): its encrypted API key is
+    revoked, it is disabled for execution and excluded from active lists, and
+    every linked model registration is deactivated for new executions while
+    its historical identity is preserved. Historical conversations, runs,
+    traces, usage and evaluation records are never touched.
+    """
+    provider = await repo.providers.get(provider_id, user["id"])
+    if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
-    linked = await repo.models.count({"owner_id": user["id"], "provider_id": provider_id})
-    if linked:
-        raise HTTPException(status_code=400, detail=f"Cannot delete: {linked} model(s) still use this provider")
-    await repo.providers.delete(provider_id, user["id"])
-    return {"ok": True}
+    if _provider_deleted(provider):
+        # Idempotent repeat delete: already tombstoned, nothing left to do.
+        return {"ok": True, "already_deleted": True}
+    patch = _tombstone_patch()
+    await repo.providers.update(provider_id, user["id"], patch)
+    linked = await repo.models.list(
+        {"owner_id": user["id"], "provider_id": provider_id}, limit=1000
+    )
+    deactivated = 0
+    for model in linked:
+        if not model.get("deleted_at"):
+            await repo.models.update(model["id"], user["id"], {
+                "enabled": False, "deleted_at": patch["deleted_at"],
+                "updated_at": patch["updated_at"],
+            })
+            deactivated += 1
+    return {"ok": True, "linked_models_deactivated": deactivated}
 
 
 @router.post("/providers/{provider_id}/test")
 async def test_provider(provider_id: str, user: dict = Depends(get_current_user)):
     provider = await repo.providers.get(provider_id, user["id"])
-    if not provider:
+    if not provider or _provider_deleted(provider):
         raise HTTPException(status_code=404, detail="Provider not found")
     if not provider.get("enabled", True):
         raise HTTPException(status_code=400, detail="Provider is disabled")
@@ -175,7 +216,7 @@ async def test_provider(provider_id: str, user: dict = Depends(get_current_user)
 @router.get("/providers/{provider_id}/models")
 async def discover_provider_models(provider_id: str, user: dict = Depends(get_current_user)):
     provider = await repo.providers.get(provider_id, user["id"])
-    if not provider:
+    if not provider or _provider_deleted(provider):
         raise HTTPException(status_code=404, detail="Provider not found")
     if not provider.get("enabled", True):
         raise HTTPException(status_code=400, detail="Provider is disabled")
@@ -214,12 +255,23 @@ async def discover_provider_models(provider_id: str, user: dict = Depends(get_cu
 @router.get("/models")
 async def list_models(user: dict = Depends(get_current_user)):
     items = await repo.models.list({"owner_id": user["id"]}, sort_field="created_at", descending=False)
-    return [_sync_model_pricing_aliases(dict(item)) for item in items]
+    # Active selector list: exclude model registrations whose provider was
+    # deleted. Historical records keep referencing the preserved model ids.
+    deleted_provider_ids = {
+        p["id"] for p in await repo.providers.list({"owner_id": user["id"]})
+        if _provider_deleted(p)
+    }
+    return [
+        _sync_model_pricing_aliases(dict(item))
+        for item in items
+        if not item.get("deleted_at") and item.get("provider_id") not in deleted_provider_ids
+    ]
 
 
 @router.post("/models")
 async def create_model(body: ModelCreate, user: dict = Depends(get_current_user)):
-    if not await repo.providers.get(body.provider_id, user["id"]):
+    provider = await repo.providers.get(body.provider_id, user["id"])
+    if not provider or _provider_deleted(provider):
         raise HTTPException(status_code=400, detail="Provider not found")
     data = _sync_model_pricing_aliases(body.model_dump())
     model = ModelRecord(owner_id=user["id"], **data).model_dump()
@@ -252,17 +304,24 @@ async def update_model(model_id: str, body: ModelUpdate, user: dict = Depends(ge
         patch["capability_source"] = source_override or "MANUAL"
     elif source_override is not None:
         patch["capability_source"] = source_override
-    if "provider_id" in patch and not await repo.providers.get(patch["provider_id"], user["id"]):
-        raise HTTPException(status_code=400, detail="Provider not found")
+    if "provider_id" in patch:
+        target = await repo.providers.get(patch["provider_id"], user["id"])
+        if not target or _provider_deleted(target):
+            raise HTTPException(status_code=400, detail="Provider not found")
     patch["updated_at"] = now_iso()
     return await repo.models.update(model_id, user["id"], patch)
 
 
 @router.delete("/models/{model_id}")
 async def delete_model(model_id: str, user: dict = Depends(get_current_user)):
-    if not await repo.models.get(model_id, user["id"]):
+    """Soft-delete a model: deactivated for new executions, identity preserved."""
+    model = await repo.models.get(model_id, user["id"])
+    if not model:
         raise HTTPException(status_code=404, detail="Model not found")
-    await repo.models.delete(model_id, user["id"])
+    if not model.get("deleted_at"):
+        await repo.models.update(model_id, user["id"], {
+            "enabled": False, "deleted_at": now_iso(), "updated_at": now_iso(),
+        })
     return {"ok": True}
 
 
@@ -272,7 +331,7 @@ async def refresh_model_metadata(model_id: str, user: dict = Depends(get_current
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
     provider = await repo.providers.get(model.get("provider_id"), user["id"])
-    if not provider:
+    if not provider or _provider_deleted(provider):
         raise HTTPException(status_code=400, detail="Provider not found")
     if not provider.get("enabled", True):
         raise HTTPException(status_code=400, detail="Provider is disabled")
@@ -345,11 +404,11 @@ async def test_model(model_id: str, user: dict = Depends(get_current_user)):
     model = await repo.models.get(model_id, user["id"])
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+    provider = await repo.providers.get(model["provider_id"], user["id"])
+    if not provider or _provider_deleted(provider):
+        raise HTTPException(status_code=400, detail="Provider not found")
     if not model.get("enabled", True):
         raise HTTPException(status_code=400, detail="Model is disabled")
-    provider = await repo.providers.get(model["provider_id"], user["id"])
-    if not provider:
-        raise HTTPException(status_code=400, detail="Provider not found")
     if not provider.get("enabled", True):
         raise HTTPException(status_code=400, detail="Provider is disabled")
     await enforce_rate_limit("model_test", user["id"], 60, 3600)

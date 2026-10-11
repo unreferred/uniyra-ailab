@@ -53,6 +53,30 @@ const parseMetadata = (value: string) => {
 // components/models/CapabilityBadges (single source of truth with the
 // workspace compatibility inspector).
 /* ------------------------------------------------------------------ Providers */
+const ConfirmDialog: React.FC<{
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  testIdPrefix: string;
+  pending?: boolean;
+  onConfirm: () => void;
+  onOpenChange: (v: boolean) => void;
+}> = ({ open, title, description, confirmLabel = "Delete", testIdPrefix, pending, onConfirm, onOpenChange }) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent data-testid={`${testIdPrefix}-confirm-dialog`}>
+      <DialogHeader>
+        <DialogTitle className="font-display">{title}</DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="ghost" data-testid={`${testIdPrefix}-confirm-cancel`} onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button variant="destructive" data-testid={`${testIdPrefix}-confirm-delete`} disabled={pending} onClick={onConfirm}>{pending ? "Deleting…" : confirmLabel}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
 const ProviderDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => void; editing?: Provider | null }> = ({ open, onOpenChange, editing }) => {
   const qc = useQueryClient();
   const [name, setName] = useState("");
@@ -130,10 +154,18 @@ const ProvidersTab: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
 
   const del = useMutation({
     mutationFn: async (id: string) => (await api.delete(`/providers/${id}`)).data,
-    onSuccess: () => { toast.success("Provider deleted"); qc.invalidateQueries({ queryKey: ["providers"] }); },
+    onSuccess: () => {
+      toast.success("Provider deleted");
+      // Invalidate both registries: tombstoned providers/models leave the
+      // active lists so stale cached selections cannot trigger execution.
+      qc.invalidateQueries({ queryKey: ["providers"] });
+      qc.invalidateQueries({ queryKey: ["models"] });
+      setDeleteTarget(null);
+    },
     onError: (e) => toast.error(apiError(e)),
   });
 
@@ -171,13 +203,22 @@ const ProvidersTab: React.FC = () => {
                   {testing === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                 </Button>
                 <Button size="sm" variant="ghost" data-testid={`edit-provider-${p.id}`} onClick={() => { setEditing(p); setDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" className="text-destructive" data-testid={`delete-provider-${p.id}`} onClick={() => del.mutate(p.id)}><Trash2 className="h-4 w-4" /></Button>
+                <Button size="sm" variant="ghost" className="text-destructive" data-testid={`delete-provider-${p.id}`} onClick={() => setDeleteTarget(p)}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </Card>
           ))}
         </div>
       )}
       <ProviderDialog open={dialogOpen} onOpenChange={setDialogOpen} editing={editing} />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title={`Delete provider “${deleteTarget?.name ?? ""}”?`}
+        description="The provider is removed from active lists and its stored API key is revoked. Linked models are deactivated for new executions. Existing chats, runs and evaluation history are preserved and remain readable."
+        testIdPrefix="provider"
+        pending={del.isPending}
+        onConfirm={() => deleteTarget && del.mutate(deleteTarget.id)}
+      />
     </div>
   );
 };
@@ -544,6 +585,7 @@ const ModelsTab: React.FC = () => {
   const [testing, setTesting] = useState<string | null>(null);
   const [capsOpen, setCapsOpen] = useState(false);
   const [capsFor, setCapsFor] = useState<ModelRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ModelRecord | null>(null);
   const providerName = (id: string) => providers.find((p) => p.id === id)?.name || "—";
 
   const patch = useMutation({
@@ -553,7 +595,7 @@ const ModelsTab: React.FC = () => {
   });
   const del = useMutation({
     mutationFn: async (id: string) => (await api.delete(`/models/${id}`)).data,
-    onSuccess: () => { toast.success("Model removed"); qc.invalidateQueries({ queryKey: ["models"] }); },
+    onSuccess: () => { toast.success("Model removed"); qc.invalidateQueries({ queryKey: ["models"] }); setDeleteTarget(null); },
     onError: (e) => toast.error(apiError(e)),
   });
 
@@ -625,7 +667,7 @@ const ModelsTab: React.FC = () => {
                       </Button>
                       <Button size="sm" variant="ghost" title="Override capabilities" data-testid={`capabilities-model-${m.id}`} onClick={() => { setCapsFor(m); setCapsOpen(true); }}><Wrench className="h-4 w-4" /></Button>
                       <Button size="sm" variant="ghost" data-testid={`edit-model-${m.id}`} onClick={() => { setEditing(m); setDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" className="text-destructive" data-testid={`delete-model-${m.id}`} onClick={() => del.mutate(m.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" className="text-destructive" data-testid={`delete-model-${m.id}`} onClick={() => setDeleteTarget(m)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </td>
                 </tr>
@@ -636,6 +678,15 @@ const ModelsTab: React.FC = () => {
       )}
       <ModelDialog open={dialogOpen} onOpenChange={setDialogOpen} editing={editing} providers={providers} />
       <CapabilityOverrideDialog model={capsFor} open={capsOpen} onOpenChange={setCapsOpen} />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title={`Remove model “${deleteTarget?.display_name ?? ""}”?`}
+        description="The model is deactivated for new executions. Existing runs and conversation history that used it remain readable."
+        testIdPrefix="model"
+        pending={del.isPending}
+        onConfirm={() => deleteTarget && del.mutate(deleteTarget.id)}
+      />
     </div>
   );
 };

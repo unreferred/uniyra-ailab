@@ -54,7 +54,7 @@ from _support import create_project
 SEARCH_PROVIDER = "prov-search-v42314"
 FETCH_PROVIDER = "prov-fetch-v42314"
 RESEARCH_TOOL_ID = "tool-research-0001"
-SENTINEL_SECRET = "sentinel-secret-v42314-UNIQUE"
+SENTINEL_PROBE = "sentinel-probe-v42314-UNIQUE"
 
 # Throwaway collections so no global provider/tool/valve row is ever touched.
 _SEARCH_COLL = "search_providers_v42314t"
@@ -913,7 +913,7 @@ def test_research_telemetry_shape(app_client):
             token in key.lower()
             for token in ("secret", "token", "password", "api_key", "credential")
         )
-    assert SENTINEL_SECRET not in json.dumps(out, default=str)
+    assert SENTINEL_PROBE not in json.dumps(out, default=str)
 
 
 # ==================================================== 26 watchdog/finalization
@@ -955,7 +955,7 @@ def test_ssrf_remote_egress_still_enforced(app_client, monkeypatch):
 
 
 def test_no_secret_in_research_output(app_client, monkeypatch):
-    monkeypatch.setenv("TINYFISH_API_KEY", SENTINEL_SECRET)
+    monkeypatch.setenv("TINYFISH_API_KEY", SENTINEL_PROBE)
     urls = _urls(2)
     search = _FakeSearchAdapter(_search_results(urls))
     fetch = _FakeBatchFetchAdapter([_success_record(u) for u in urls])
@@ -965,5 +965,5 @@ def test_no_secret_in_research_output(app_client, monkeypatch):
     )
 
     blob = json.dumps(out, default=str)
-    assert SENTINEL_SECRET not in blob
+    assert SENTINEL_PROBE not in blob
     assert "api_key" not in blob

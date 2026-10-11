@@ -449,21 +449,30 @@ async def _resolve(
         ))
     if run is not None:
         _apply_model_identity(run, model)
+
+    provider = await _repo().providers.get(model.get("provider_id"), owner_id)
+    if not provider:
+        raise _ResolutionError(make_error(
+            "PROVIDER_UNAVAILABLE", "PROVIDER",
+            f"Provider '{model.get('provider_id')}' was not found", source="validation",
+        ))
+    if run is not None:
+        _apply_provider_identity(run, provider)
+    if provider.get("deleted_at"):
+        # Tombstoned provider: historical references stay readable, but no new
+        # execution may run against it (its key material was revoked). The
+        # model-level disabled flag is secondary to the deleted-provider cause.
+        raise _ResolutionError(make_error(
+            "PROVIDER_UNAVAILABLE", "PROVIDER",
+            f"Provider '{provider.get('name')}' is no longer available",
+            source="validation",
+        ))
     if not model.get("enabled", True):
         raise _ResolutionError(make_error(
             "MODEL_DISABLED", "MODEL_UNAVAILABLE",
             f"Model '{model.get('display_name') or model_id}' is disabled",
             source="validation",
         ))
-
-    provider = await _repo().providers.get(model.get("provider_id"), owner_id)
-    if not provider:
-        raise _ResolutionError(make_error(
-            "PROVIDER_NOT_FOUND", "PROVIDER",
-            f"Provider '{model.get('provider_id')}' was not found", source="validation",
-        ))
-    if run is not None:
-        _apply_provider_identity(run, provider)
     if not provider.get("enabled", True):
         raise _ResolutionError(make_error(
             "PROVIDER_DISABLED", "VALIDATION",

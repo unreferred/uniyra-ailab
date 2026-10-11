@@ -520,8 +520,8 @@ def test_secret_redaction(app_client, as_user):
 
     openai_secret = "sk-" + "A" * 24
     github_secret = "ghp_" + "B" * 24
-    bearer_token = "abcdef1234567890"
-    raw_secrets = (openai_secret, github_secret, "hunter2", bearer_token)
+    bearer_probe = "abcdef1234567890"
+    raw_secrets = (openai_secret, github_secret, "hunter2", bearer_probe)
 
     assistant = (
         "## Role\n"
@@ -530,7 +530,7 @@ def test_secret_redaction(app_client, as_user):
         f"- Use the key {openai_secret} only in tests.\n"
         f"- The token {github_secret} is rotated daily.\n"
         "- password=hunter2 must never be logged.\n"
-        f"- Authorization: Bearer {bearer_token} is the request header.\n"
+        f"- Authorization: Bearer {bearer_probe} is the request header.\n"
     )
     conv, msgs = _seed_conversation(app_client, owner, pid, [
         ("user", "Check the secret handling."),

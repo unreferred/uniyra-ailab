@@ -333,16 +333,16 @@ def test_project_isolation_boundaries(app_client, as_user):
     ta = _http_tool(app_client, pa["id"], "privatetool")
 
     # credential in A invisible in B's vault list; cross-project resolve 403
-    secret = "v41-isolation-secret-abc123"
+    iso_probe = "v41-isolation-abc123"
     r = app_client.post("/api/tool-credentials", json={
         "project_id": pa["id"], "name": "ISOKEY",
-        "credential_type": "API_KEY", "value": secret})
+        "credential_type": "API_KEY", "value": iso_probe})
     assert r.status_code == 200, r.text
     cred_id = r.json()["id"]
     rb = app_client.get("/api/tool-credentials", params={"project_id": pb["id"]})
     assert rb.status_code == 200, rb.text
     assert all(c["id"] != cred_id for c in rb.json()["items"])
-    assert secret not in rb.text
+    assert iso_probe not in rb.text
 
     async def _xproj():
         return await cred_service.resolve_credential_value(

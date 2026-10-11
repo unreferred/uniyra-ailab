@@ -202,26 +202,26 @@ def test_tinyfish_not_configured_then_configured_status(app_client, as_user):
     assert status["available"] is False
     assert "API Key required" in status["reason"]
 
-    secret = "tf-secret-UNIQUE-a1"
+    valve_probe = "tf-probe-UNIQUE-a1"
     put = _put_provider_values(
         app_client,
-        {"api_key": secret, "timeout_seconds": 20, "max_results": 7},
+        {"api_key": valve_probe, "timeout_seconds": 20, "max_results": 7},
     )
     assert put.status_code == 200, put.text
     provider_values = put.json()["provider_values"]
     assert provider_values["api_key"] == {"stored": True}
     assert provider_values["timeout_seconds"] == 20
     assert provider_values["max_results"] == 7
-    assert secret not in put.text
+    assert valve_probe not in put.text
     assert put.json()["status"]["configured"] is True
 
 
 # ------------------------------------------------ secret encrypted, never returned
 def test_secret_valve_encrypted_and_never_returned(app_client, as_user):
     _reset_tinyfish(app_client)
-    secret = "tf-secret-UNIQUE-b2c3d4"
+    valve_probe = "tf-probe-UNIQUE-b2c3d4"
 
-    put = _put_provider_values(app_client, {"api_key": secret})
+    put = _put_provider_values(app_client, {"api_key": valve_probe})
     assert put.status_code == 200, put.text
 
     for url in (
@@ -230,7 +230,7 @@ def test_secret_valve_encrypted_and_never_returned(app_client, as_user):
     ):
         r = app_client.get(url)
         assert r.status_code == 200, r.text
-        assert secret not in r.text
+        assert valve_probe not in r.text
         assert "api_key_enc" not in r.text
         assert "encrypted_value" not in r.text
 
@@ -246,9 +246,9 @@ def test_secret_valve_encrypted_and_never_returned(app_client, as_user):
     )
     assert vault_doc is not None
     assert vault_doc.get("encrypted_value")
-    assert vault_doc["encrypted_value"] != secret
+    assert vault_doc["encrypted_value"] != valve_probe
 
-    assert _resolve_search_key(app_client) == secret
+    assert _resolve_search_key(app_client) == valve_probe
 
 
 def test_replacing_secret_works(app_client, as_user):

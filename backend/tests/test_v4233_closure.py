@@ -355,13 +355,13 @@ def test_tinyfish_http_400_normalization(app_client, as_user):
 
 
 def test_fetch_request_contract_and_error_normalization(app_client, as_user):
-    key = "fetch-key-UNIQUE-b3"
+    fetch_probe = "fetch-key-UNIQUE-b3"
     tiny = TinyFishFetchProvider(
         {
             "id": TINYFISH_FETCH_PROVIDER_ID,
             "provider_type": "tinyfish",
             "configuration": {"base_url": "https://api.fetch.tinyfish.ai"},
-            "api_key_enc": security.encrypt_secret(key),
+            "api_key_enc": security.encrypt_secret(fetch_probe),
         }
     )
 
@@ -379,7 +379,7 @@ def test_fetch_request_contract_and_error_normalization(app_client, as_user):
     out = call(app_client, _ok)
     assert out["text"] == "hello world"
     assert _CapturingTransport.last["method"] == "POST"
-    assert _CapturingTransport.last["headers"]["X-API-Key"] == key
+    assert _CapturingTransport.last["headers"]["X-API-Key"] == fetch_probe
 
     async def _fail():
         _CapturingTransport.response = httpx.Response(
@@ -397,7 +397,7 @@ def test_fetch_request_contract_and_error_normalization(app_client, as_user):
     exc = call(app_client, _fail)
     assert getattr(exc, "code", None) == "FETCH_RATE_LIMITED"
     assert getattr(exc, "upstream_status", None) == 429
-    assert key not in str(exc)
+    assert fetch_probe not in str(exc)
 
 
 # ================================================= C: loop continuation / bounds
@@ -692,11 +692,11 @@ def test_round_observability_is_recorded(app_client, as_user, monkeypatch):
 def test_project_provider_override_at_execution(app_client, as_user):
     owner = as_user["id"]
     project = call(app_client, create_project, owner)
-    secret = "projA-secret-UNIQUE-e1"
+    override_probe = "projA-secret-UNIQUE-e1"
 
     put = app_client.put(
         f"/api/tool-valves/{SEARCH_TOOL_ID}",
-        json={"project_id": project, "provider_values": {"api_key": secret, "max_results": 5}},
+        json={"project_id": project, "provider_values": {"api_key": override_probe, "max_results": 5}},
     )
     assert put.status_code == 200, put.text
 
@@ -717,7 +717,7 @@ def test_project_provider_override_at_execution(app_client, as_user):
     global_resolved = call(app_client, _resolve_global)
     assert global_resolved.get("credential_id") is None
     assert global_resolved["configuration"].get("max_results") is None
-    assert secret not in json.dumps(global_resolved)
+    assert override_probe not in json.dumps(global_resolved)
 
 
 def test_project_secret_isolation(app_client, as_user):
@@ -758,12 +758,12 @@ def test_project_secret_isolation(app_client, as_user):
 def test_global_provider_fallback_for_project(app_client, as_user):
     owner = as_user["id"]
     project = call(app_client, create_project, owner, "fallback-project")
-    global_secret = "GLOBAL-secret-UNIQUE-e4"
+    global_probe = "GLOBAL-secret-UNIQUE-e4"
 
     async def _save_global():
         await _save_provider_values(
             owner, "search", TINYFISH_SEARCH_PROVIDER_ID,
-            {"api_key": global_secret, "max_results": 7}, None,
+            {"api_key": global_probe, "max_results": 7}, None,
         )
 
     call(app_client, _save_global)
@@ -782,17 +782,17 @@ def test_global_provider_fallback_for_project(app_client, as_user):
 def test_revoked_project_credential_fails_closed(app_client, as_user):
     owner = as_user["id"]
     project = call(app_client, create_project, owner, "revoked-project")
-    global_secret = "global-secret-UNIQUE-e5"
-    project_secret = "project-secret-UNIQUE-e6"
+    global_probe = "global-secret-UNIQUE-e5"
+    project_probe = "project-secret-UNIQUE-e6"
 
     async def _save():
         await _save_provider_values(
             owner, "search", TINYFISH_SEARCH_PROVIDER_ID,
-            {"api_key": global_secret}, None,
+            {"api_key": global_probe}, None,
         )
         await _save_provider_values(
             owner, "search", TINYFISH_SEARCH_PROVIDER_ID,
-            {"api_key": project_secret}, project,
+            {"api_key": project_probe}, project,
         )
         row = await tool_valves._get_row(owner, "provider", TINYFISH_SEARCH_PROVIDER_ID, project)
         ref = (row or {}).get("secret_refs", {}).get("api_key")
@@ -1015,12 +1015,12 @@ def test_search_provider_transport_regression(app_client, as_user):
 
 
 def test_fetch_provider_transport_regression(app_client, as_user):
-    key = "regression-fetch-UNIQUE-g2"
+    fetch_probe = "regression-fetch-UNIQUE-g2"
     adapter = TinyFishFetchProvider({
         "id": TINYFISH_FETCH_PROVIDER_ID,
         "provider_type": "tinyfish",
         "configuration": {"base_url": "https://api.fetch.tinyfish.ai"},
-        "api_key_enc": security.encrypt_secret(key),
+        "api_key_enc": security.encrypt_secret(fetch_probe),
     })
 
     async def _run():
