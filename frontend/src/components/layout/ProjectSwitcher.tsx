@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronsUpDown, Plus, FolderKanban, Check } from "lucide-react";
+import { ChevronsUpDown, Plus, FolderKanban, Check, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { api, apiError } from "@/lib/api";
 import { useProjects } from "@/context/ProjectContext";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,9 @@ import {
 import { cn } from "@/lib/utils";
 
 export const ProjectSwitcher: React.FC = () => {
-  const { projects, activeProject, setActiveId, refresh } = useProjects();
+  const { projects, activeProject, activeId, setActiveId, refresh } = useProjects();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
@@ -73,6 +75,15 @@ export const ProjectSwitcher: React.FC = () => {
             >
               <Plus className="h-3.5 w-3.5" /> New project
             </button>
+            {activeId && (
+              <button
+                data-testid="project-switcher-manage"
+                onClick={() => { setOpen(false); navigate(`/projects/${activeId}`); }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+              >
+                <Settings2 className="h-3.5 w-3.5" /> Manage project
+              </button>
+            )}
           </div>
         </PopoverContent>
       </Popover>

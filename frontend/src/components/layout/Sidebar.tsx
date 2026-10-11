@@ -1,13 +1,11 @@
 import React, { useState } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   Home, MessageSquare, Swords, FlaskConical, FileText, Boxes, Settings, Database,
   PanelLeftClose, PanelLeft, FlaskRound, Users, Microscope, Lightbulb, LineChart, AlertTriangle, Wrench, ShieldAlert,
   BarChart3, BadgeCheck, FileCode2, Bot, Layers, ChevronDown, ChevronRight,
 } from "lucide-react";
-import { FolderKanban } from "lucide-react";
-import { useProjects } from "@/context/ProjectContext";
 
 type NavItem = {
   to: string;
@@ -110,7 +108,6 @@ export const Sidebar: React.FC<{ collapsed: boolean; onToggle: () => void }> = (
       </div>
 
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden p-2 scrollbar-thin">
-        <ProjectWorkspaceLink collapsed={collapsed} />
         {NAV_SECTIONS.map((section, i) => {
           const hasActive = section.items.some((n) =>
             n.end ? location.pathname === n.to : location.pathname === n.to || location.pathname.startsWith(n.to + "/")
@@ -185,30 +182,5 @@ export const Sidebar: React.FC<{ collapsed: boolean; onToggle: () => void }> = (
         </button>
       </div>
     </aside>
-  );
-};
-
-const ProjectWorkspaceLink: React.FC<{ collapsed: boolean }> = ({ collapsed }) => {
-  const { activeId } = useProjects();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const target = activeId;
-  const active = location.pathname.startsWith("/projects/");
-  if (!target) return null;
-  return (
-    <button
-      type="button"
-      data-testid="nav-project-workspace"
-      title={collapsed ? "Project Workspace" : undefined}
-      onClick={() => navigate(`/projects/${target}`)}
-      className={
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors " +
-        (collapsed ? "justify-center px-0 " : "") +
-        (active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground")
-      }
-    >
-      <FolderKanban className="h-4 w-4 shrink-0" />
-      {!collapsed && <span>Project Workspace</span>}
-    </button>
   );
 };
