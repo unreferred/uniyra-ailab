@@ -110,7 +110,7 @@ jobs:
         with:
           images: ${{ env.FRONTEND_IMAGE }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern=v{{version}}
           labels: |
             org.opencontainers.image.title=Uniyra AI Lab (frontend)
             org.opencontainers.image.description=Frontend (nginx) image for Uniyra AI Lab
@@ -126,7 +126,7 @@ jobs:
         with:
           images: ${{ env.BACKEND_IMAGE }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern=v{{version}}
           labels: |
             org.opencontainers.image.title=Uniyra AI Lab (backend)
             org.opencontainers.image.description=Backend (uvicorn) image for Uniyra AI Lab
