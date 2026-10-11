@@ -310,3 +310,18 @@ Frontend (`frontend/.env`):
   adapter, seeding, and the `emergentintegrations` dependency were removed.
   Existing MongoDB provider records with that type are left untouched but will
   fail execution; re-create them as `openai_compatible` (BYOK) providers.
+
+## License
+
+Uniyra AI Lab is published by **Unreferred** and licensed under the
+[Apache License 2.0](LICENSE).
+
+- Forks, modifications, and commercial use are permitted under Apache-2.0,
+  without publisher approval, subject to the license conditions (keep
+  copyright and license notices, state significant changes, etc.).
+- Trademark rights are separate: the "Uniyra" name and the official logo are
+  trademarks of Unreferred and are not granted by the license. See
+  [TRADEMARKS.md](TRADEMARKS.md).
+- Unofficial forks are not affiliated with or endorsed by Unreferred. They may
+  not use the official Uniyra branding in a way that implies otherwise.
+- Applicable third-party notices are listed in [NOTICE](NOTICE).

@@ -104,6 +104,7 @@ test("every sidebar nav link points at a route declared in App.tsx", () => {
   for (const link of links) {
     const href = link.getAttribute("href");
     expect(href).toBeTruthy();
+    if ((href as string).startsWith("http")) continue; // external links (footer) are not app routes
     expect(matchesAppRoute(href as string)).toBe(true);
   }
 });

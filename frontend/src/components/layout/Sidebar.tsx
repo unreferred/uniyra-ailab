@@ -3,9 +3,12 @@ import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   Home, MessageSquare, Swords, FlaskConical, FileText, Boxes, Settings, Database,
-  PanelLeftClose, PanelLeft, FlaskRound, Users, Microscope, Lightbulb, LineChart, AlertTriangle, Wrench, ShieldAlert,
-  BarChart3, BadgeCheck, FileCode2, Bot, Layers, ChevronDown, ChevronRight,
+  PanelLeftClose, PanelLeft, Users, Microscope, Lightbulb, LineChart, AlertTriangle, Wrench, ShieldAlert,
+  BarChart3, BadgeCheck, FileCode2, Bot, Layers, ChevronDown, ChevronRight, ExternalLink,
 } from "lucide-react";
+
+const REPO_URL = "https://github.com/unreferred/uniyra-ailab";
+const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
 
 type NavItem = {
   to: string;
@@ -91,18 +94,26 @@ export const Sidebar: React.FC<{ collapsed: boolean; onToggle: () => void }> = (
       data-testid="navigation-sidebar"
       className={cn("flex h-full min-h-0 flex-col border-r border-border bg-card transition-[width] duration-200", collapsed ? "w-[64px]" : "w-[240px]")}
     >
-      <div className={cn("flex h-[52px] shrink-0 items-center border-b border-border px-3", collapsed ? "justify-center" : "justify-between")}>
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <FlaskRound className="h-4 w-4" />
+      <div className={cn("flex h-[64px] shrink-0 items-center border-b border-border px-3", collapsed ? "justify-center" : "justify-between")}>
+        {collapsed ? (
+          <img
+            src="/logo-uniyra.png"
+            alt="Uniyra"
+            className="h-[42px] w-[42px] rounded-md object-contain"
+            data-testid="sidebar-logo"
+          />
+        ) : (
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo-uniyra.png"
+              alt="Uniyra AI Lab"
+              className="h-[64px] w-[64px] max-h-full rounded-md object-contain"
+              data-testid="sidebar-logo"
+            />
+            <div className="leading-tight">
+              <div className="font-display text-sm font-semibold tracking-tight">Uniyra</div>
+              <div className="text-xs text-muted-foreground">AI Lab</div>
             </div>
-            <span className="font-display text-sm font-semibold tracking-tight">Uniyra AI Lab</span>
-          </div>
-        )}
-        {collapsed && (
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <FlaskRound className="h-4 w-4" />
           </div>
         )}
       </div>
@@ -157,7 +168,7 @@ export const Sidebar: React.FC<{ collapsed: boolean; onToggle: () => void }> = (
         })}
       </nav>
 
-      <div className="shrink-0 space-y-0.5 border-t border-border p-2">
+      <div className="mt-auto shrink-0 border-t border-border p-2" data-testid="sidebar-footer">
         <NavLink
           to="/settings"
           data-testid="nav-settings"
@@ -180,6 +191,35 @@ export const Sidebar: React.FC<{ collapsed: boolean; onToggle: () => void }> = (
           {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           {!collapsed && <span>Collapse</span>}
         </button>
+        {!collapsed && (
+          <div className="mt-2 border-t border-border pt-2 px-3 pb-1 space-y-1 text-[11px] leading-snug text-muted-foreground">
+            <div className="font-medium text-foreground">Uniyra AI Lab</div>
+            <div>© 2026 Unreferred</div>
+            <a
+              href={LICENSE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="sidebar-license-link"
+              className="block rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring hover:text-foreground"
+            >
+              Apache-2.0 License
+            </a>
+            <div className="flex items-center justify-between gap-2">
+              <span>Open Source Software</span>
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="sidebar-github-link"
+                aria-label="GitHub repository (opens in a new tab)"
+                className="flex shrink-0 items-center gap-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring hover:text-foreground"
+              >
+                GitHub
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
