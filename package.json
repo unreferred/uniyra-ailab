@@ -1,0 +1,17 @@
+{
+  "name": "uniyra-ai-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Uniyra AI Lab — root dev orchestration (frontend + backend)",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:frontend": "node scripts/frontend-dev.js",
+    "dev:backend": "node scripts/check-backend.js && backend/.venv/bin/uvicorn server:app --app-dir backend --host 0.0.0.0 --port 8001 --reload --reload-dir backend",
+    "dev:mongo": "docker start ai-lab-mongo",
+    "install:all": "corepack yarn install && corepack yarn --cwd frontend install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "packageManager": "yarn@1.22.22"
+}

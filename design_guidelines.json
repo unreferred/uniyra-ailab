@@ -1,0 +1,198 @@
+{
+  "app_identity": {
+    "name": "Uniyra AI Lab",
+    "version": "1.0.0 Workstation",
+    "tagline": "The High-Precision AI Research & Model Evaluation Operating System",
+    "archetype": "Archetype 4 (Swiss & High-Contrast Precision) + Tactical Developer Tool Workstation",
+    "theme_mode": "Light mode default with seamless Dark mode toggle",
+    "viewport": "Desktop-first optimized for 1440p and multi-monitor research setups"
+  },
+  "design_principles": [
+    "Precision over Ornamentation: Zero decorative slop. Hairline 1px borders, high-density telemetry, sharp visual hierarchy.",
+    "Single-Pane Ergonomics: Inspired by VS Code, Linear, and Raycast — resizable split panes, command palette (Cmd+K), persistent top telemetry rail.",
+    "Deterministic Telemetry: Real-time tracking of latency (ms), Time-to-First-Token (TTFT), throughput (tok/s), cost ($/1k tokens), and memory footprint across every run.",
+    "Full Research Lineage: Project -> Research Session -> Experiment -> Run -> Response -> AI Evaluation -> Finding -> Artifact.",
+    "Tactical Accessibility: Universal data-testid attributes on every button, input, tab, card, panel, and model selector."
+  ],
+  "typography": {
+    "heading_font": "Outfit, system-ui, sans-serif",
+    "body_font": "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    "code_mono_font": "JetBrains Mono, Fira Code, monospace",
+    "font_feature_settings": "ss01, ss03, cv02, cv11 (tabular numerals enabled for latency/costs)",
+    "scale": {
+      "h1": "text-3xl font-semibold tracking-tight lg:text-4xl",
+      "h2": "text-xl font-semibold tracking-tight lg:text-2xl",
+      "h3": "text-lg font-medium tracking-tight",
+      "h4": "text-base font-medium",
+      "body": "text-sm leading-relaxed text-foreground",
+      "caption": "text-xs font-mono uppercase tracking-wider text-muted-foreground",
+      "telemetry_metric": "font-mono text-sm font-semibold tracking-tight"
+    }
+  },
+  "colors": {
+    "light": {
+      "background": "#F8FAFC",
+      "surface_base": "#FFFFFF",
+      "surface_muted": "#F1F5F9",
+      "surface_elevated": "#FFFFFF",
+      "border_hairline": "#E2E8F0",
+      "border_strong": "#CBD5E1",
+      "foreground": "#0F172A",
+      "foreground_muted": "#64748B",
+      "primary_accent": "#0F172A",
+      "primary_hover": "#1E293B",
+      "brand_indigo": "#4F46E5",
+      "brand_cyan": "#0891B2",
+      "brand_emerald": "#059669",
+      "brand_amber": "#D97706",
+      "brand_rose": "#E11D48",
+      "telemetry_bg": "#F1F5F9",
+      "code_bg": "#0F172A",
+      "code_fg": "#F8FAFC"
+    },
+    "dark": {
+      "background": "#090A0F",
+      "surface_base": "#11131B",
+      "surface_muted": "#1A1D28",
+      "surface_elevated": "#222634",
+      "border_hairline": "#262A3B",
+      "border_strong": "#373E56",
+      "foreground": "#F8FAFC",
+      "foreground_muted": "#94A3B8",
+      "primary_accent": "#38BDF8",
+      "primary_hover": "#0EA5E9",
+      "brand_indigo": "#6366F1",
+      "brand_cyan": "#22D3EE",
+      "brand_emerald": "#34D399",
+      "brand_amber": "#FBBF24",
+      "brand_rose": "#FB7185",
+      "telemetry_bg": "#131622",
+      "code_bg": "#05060A",
+      "code_fg": "#E2E8F0"
+    }
+  },
+  "layout_architecture": {
+    "shell_structure": {
+      "left_sidebar": "Collapsible 64px (collapsed) / 240px (expanded) navigation rail with workspace switcher, core app links, registry, settings, and profile controls.",
+      "top_telemetry_bar": "Persistent 44px instrument rail displaying active project badge, global latency ping, current token budget usage, API health indicators, global search trigger, and theme toggle.",
+      "main_view_container": "Flex-1 overflow-y-auto background-canvas with support for resizable multi-column split panes via react-resizable-panels."
+    },
+    "spacing_scale": {
+      "panel_padding": "p-4 lg:p-6",
+      "card_padding": "p-3 lg:p-4",
+      "gap_tight": "gap-2",
+      "gap_normal": "gap-4",
+      "gap_loose": "gap-6"
+    }
+  },
+  "modules_and_views": {
+    "home_overview": {
+      "purpose": "Command center displaying high-level AI R&D health, active research sessions, experiment runs summary, and provider latency status.",
+      "widgets": [
+        "Live System Telemetry Bar (Active Models, Total Runs, Avg Latency, Cost budget)",
+        "Recent Experiments & Runs Data Table",
+        "Active Research Sessions & Quick Workspace Launcher",
+        "Model Provider Connection Status Grid (OpenAI, Anthropic, Gemini, DeepSeek, Local Ollama)"
+      ]
+    },
+    "workspace_playground": {
+      "purpose": "Interactive prompt engineering sandbox with single & multi-model comparison, system prompt controls, hyperparameter tuning (temperature, top_p, max_tokens), markdown rendering, code block runner, and live token usage breakdown.",
+      "features": [
+        "Model Selector with Provider Badges",
+        "System Prompt Preset Drawer",
+        "Parameter Sliders (Temperature, Top_P, Max Tokens, Presence Penalty)",
+        "Live Telemetry Footer (Latency ms, TTFT, Tokens/sec, Cost $)",
+        "Formatted Output Cards with Raw JSON & Markdown toggles"
+      ]
+    },
+    "model_arena": {
+      "purpose": "Side-by-side prompt testing across 2 to 4 AI models simultaneously with synchronized input, live streaming response feeds, and per-panel metrics.",
+      "modes": [
+        "Standard Arena: Clear model branding and side-by-side performance breakdown.",
+        "Blind Arena: Models anonymized as Model A, Model B, Model C, Model D. Researcher votes on best response before clicking 'Reveal Models'."
+      ]
+    },
+    "ai_judge": {
+      "purpose": "Automated evaluation engine that uses a judge LLM (e.g. Claude 3.5 Sonnet / GPT-4o) to evaluate and rank model outputs against multi-dimensional rubrics.",
+      "rubric_dimensions": [
+        "Factual Accuracy (0-10)",
+        "Hallucination Index (Low/Medium/High)",
+        "Reasoning Depth & Logic (0-10)",
+        "Formatting & Constraint Adherence (0-10)",
+        "Safety & Alignment Score (0-10)"
+      ],
+      "outputs": "Structured Scorecards, Radar Chart visualization, Leaderboard ranking, and Critique Log."
+    },
+    "ai_council": {
+      "purpose": "Multi-agent deliberative panel where specialized AI personas (e.g. Chief Architect, Security Auditor, Domain Researcher, Skeptic) execute multi-round discussion.",
+      "rounds": [
+        "Round 1: Initial Proposals",
+        "Round 2: Cross-Examination & Critiques",
+        "Round 3: Rebuttal & Refinement",
+        "Round 4: Synthesis & Final Recommendation"
+      ]
+    },
+    "research_sessions": {
+      "purpose": "Notebook-style organized research logs linking hypotheses, prompt variations, telemetry findings, and notes.",
+      "features": ["Branching prompt history", "Session tagging", "Export to Markdown/JSON PDF report"]
+    },
+    "experiments_and_runs": {
+      "purpose": "Version-controlled experiment tracker showing structured runs matrix, parameter diffs, and benchmark scores.",
+      "features": ["Run comparison matrix", "Parameter diff highlight", "Bulk execution status tracker"]
+    },
+    "artifacts_and_findings": {
+      "purpose": "Knowledge base capturing validated prompts, golden test sets, system schemas, and verified empirical findings.",
+      "features": ["Artifact Vault (JSON, Code, Prompts)", "Findings with direct evidence links to specific Run IDs"]
+    },
+    "provider_and_model_registry": {
+      "purpose": "Infrastructure manager to configure API keys, test endpoint connections, set rate limits, toggle active models, and benchmark provider ping latency.",
+      "supported_providers": ["OpenAI", "Anthropic", "Google Gemini", "DeepSeek", "Mistral AI", "Meta Llama (Groq/Together)", "Local Ollama", "Azure OpenAI"]
+    },
+    "settings_and_auth": {
+      "purpose": "User management, workspace preferences, API key encryption vault, telemetry storage limits, and export tools."
+    }
+  },
+  "component_specs": {
+    "shadcn_overrides": {
+      "card": "border border-border/60 bg-card text-card-foreground shadow-none rounded-lg",
+      "button": "font-medium text-xs rounded-md transition-all active:scale-[0.98]",
+      "table": "text-xs font-mono border-collapse",
+      "dialog": "border border-border/80 bg-background/95 backdrop-blur-md shadow-2xl rounded-xl",
+      "tabs": "bg-muted/50 p-1 rounded-md text-xs font-medium"
+    },
+    "custom_micro_interactions": [
+      "Hover highlight on table rows with subtle border accent",
+      "Live pulsing green dot for active streaming responses",
+      "Click-to-copy buttons with animated checkmark feedback",
+      "Keyboard shortcut badges (Cmd+K, Ctrl+Enter, Esc)"
+    ]
+  },
+  "image_urls": {
+    "researcher_avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1758685848602-09e52ef9c7d3?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Dr. Elena Rostova - Principal AI Scientist"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1575318799743-dfb5e3c7b7c6?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Marcus Vance - Lead Evaluation Engineer"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1659354206036-3d2699c31e0c?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Aria Chen - Alignment Research Fellow"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1659353887272-703de19bec9a?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Dr. Sarah Miller - Systems Observability Architect"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Build the complete desktop workstation web app in React with clean, modular components inside `/app/frontend/src/`.",
+    "Ensure all interactive elements have explicit `data-testid` attributes (e.g. data-testid='navigation-sidebar', data-testid='model-selector-dropdown', data-testid='run-experiment-button').",
+    "Implement light mode default with a dark mode toggle in the top telemetry rail.",
+    "Provide rich mock data and real state management so researchers can run Arena comparisons, trigger AI Judge evaluations, run Council discussions, create Findings, and test Provider API health pings.",
+    "Ensure responsiveness and split pane layout functionality for 1440p desktop screens.",
+    "Do NOT use heavy solid gradients or decorative AI cliparts. Maintain the crisp, high-density aesthetics of Linear and Raycast."
+  ]
+}
