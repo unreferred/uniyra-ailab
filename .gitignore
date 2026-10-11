@@ -94,6 +94,9 @@ android-sdk/frontend/node_modules/.cache/default-development/0.pack
 frontend/node_modules/.cache/default-development/5.pack
 .env
 .env.*
+# Prebuilt install state (records pinned/previous image versions)
+.ailab_version
+.ailab_version.*
 *.env
 credentials.json
 *.key

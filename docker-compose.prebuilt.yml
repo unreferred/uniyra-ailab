@@ -1,0 +1,88 @@
+# Uniyra AI Lab — prebuilt (GHCR) production installation.
+#
+# Uses published images from GitHub Container Registry — no local build step.
+# The source-build installation (docker-compose.yml) is untouched and remains
+# the default for `docker compose` without -f.
+#
+# Usage:
+#   AILAB_VERSION=v1.0.0 docker compose -f docker-compose.prebuilt.yml up -d
+#
+# Version pinning: set AILAB_VERSION in .env or the environment to a published
+# release tag (e.g. v1.0.0). `latest` tracks the newest approved stable release
+# only. install.sh/update.sh manage this for you.
+#
+# Security model is identical to docker-compose.yml: MongoDB and the backend
+# are NOT published to the host; the frontend nginx on APP_PORT is the only
+# entrypoint. JWT_SECRET/ENCRYPTION_KEY come from .env at runtime and are
+# never baked into images.
+
+name: uniyra-ailab
+
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - internal
+    # No `ports:` on purpose — reachable only from the backend on the internal network.
+
+  backend:
+    image: ghcr.io/unreferred/uniyra-ailab-backend:${AILAB_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: ${DB_NAME:-omnilab}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -hex 32)}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env (python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")}
+      FRONTEND_URL: http://localhost:${APP_PORT:-8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      OMNILAB_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: lax
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      ENABLE_ADMIN_SEED: ${ENABLE_ADMIN_SEED:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ATTACHMENT_STORAGE_DIR: /app/data/attachments
+      CODE_INTERPRETER_ENABLED: ${CODE_INTERPRETER_ENABLED:-false}
+    volumes:
+      - attachments:/app/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/api/', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+    # No `ports:` on purpose — the browser reaches the API only through the frontend nginx at /api/.
+
+  frontend:
+    image: ghcr.io/unreferred/uniyra-ailab-frontend:${AILAB_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+volumes:
+  mongo_data:
+  attachments:
+
+networks:
+  internal:
+    driver: bridge

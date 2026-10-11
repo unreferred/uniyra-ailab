@@ -4,6 +4,9 @@ Run the full stack (frontend + backend + MongoDB) with Docker only. No host
 Node.js, Python, or MongoDB required. Images are built locally; nothing is
 published or pushed anywhere.
 
+> **Prebuilt alternative:** to install from published GHCR images instead of
+> building from source, see `docs/PREBUILT_INSTALL.md` (`./install.sh`).
+
 ## Architecture
 
 | Service    | Image                        | Exposure                                      |

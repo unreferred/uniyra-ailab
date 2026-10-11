@@ -1,0 +1,255 @@
+# Uniyra AI Lab — GHCR release publishing.
+#
+# Publishes versioned frontend/backend images to GitHub Container Registry
+# ONLY when a stable, semver-tagged GitHub Release is published.
+#
+# Guarantees:
+# - Pushes to main, PRs, and prerelease/draft releases never publish images.
+#   (The workflow trigger is `release: published` exclusively; there is no
+#   push/pull_request publishing path.)
+# - An existing image tag on GHCR is never overwritten: the job fails first.
+#   NOTE: this pre-push manifest check is best-effort (TOCTOU race). See the
+#   registry-settings notes in docs/PREBUILT_INSTALL.md — GHCR tags are
+#   mutable by default and cannot be made fully immutable from repository
+#   code alone.
+# - `latest` is moved only AFTER both frontend and backend versioned images
+#   are published and their manifests verified, and only when the release is
+#   the newest stable semver (an older stable release can never downgrade
+#   `latest`). Publication of the two `latest` tags is NOT atomic; partial
+#   publication is detected and reported loudly (see the promote job).
+#
+# Approval model: publishing a GitHub Release (non-draft, non-prerelease,
+# stable vX.Y.Z tag) IS the production authorization action. No further
+# approval mechanism is configured or claimed. Maintainers who want a
+# human gate can enable a GitHub Environment with required reviewers
+# (Settings → Environments) — see docs/PREBUILT_INSTALL.md.
+#
+# Required repository setting: Settings → Actions → General → Workflow
+# permissions → "Read and write permissions" is NOT needed globally; this
+# workflow declares its own minimal permissions (packages: write).
+
+name: Release images
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+# Serialize production publishing. Never cancel an in-flight release:
+# cancelling mid-push could leave a partially promoted `latest`.
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  FRONTEND_IMAGE: ghcr.io/unreferred/uniyra-ailab-frontend
+  BACKEND_IMAGE: ghcr.io/unreferred/uniyra-ailab-backend
+
+jobs:
+  gate:
+    # Fail safely before any build if the release is not a stable semver tag.
+    name: Release gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate stable semver release
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Release tag: ${TAG}"
+          if [[ "${{ github.event.release.draft }}" == "true" ]]; then
+            echo "::error::Draft release — refusing to publish." && exit 1
+          fi
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+            echo "::error::Prerelease — refusing to publish or update latest." && exit 1
+          fi
+          # Strict stable semver: vMAJOR.MINOR.PATCH, no suffixes (v1.0.0).
+          if ! [[ "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '${TAG}' is not a stable semver tag (expected vX.Y.Z). Refusing to publish." && exit 1
+          fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+
+  publish:
+    # Push VERSIONED tags only. `latest` is advanced later, in the promote
+    # job, after both images are verified on the registry.
+    name: Build and push GHCR images (versioned tags)
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse to overwrite existing version tags
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          for IMAGE in "${FRONTEND_IMAGE}" "${BACKEND_IMAGE}"; do
+            if docker manifest inspect "${IMAGE}:${TAG}" > /dev/null 2>&1; then
+              echo "::error::${IMAGE}:${TAG} already exists on GHCR. Tags are immutable — refusing to overwrite. Create a new release version."
+              exit 1
+            fi
+            echo "${IMAGE}:${TAG} is free."
+          done
+
+      - name: Extract OCI metadata (frontend)
+        id: meta_frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+          labels: |
+            org.opencontainers.image.title=Uniyra AI Lab (frontend)
+            org.opencontainers.image.description=Frontend (nginx) image for Uniyra AI Lab
+            org.opencontainers.image.vendor=Unreferred
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.source=https://github.com/unreferred/uniyra-ailab
+            org.opencontainers.image.url=https://github.com/unreferred/uniyra-ailab
+            org.opencontainers.image.documentation=https://github.com/unreferred/uniyra-ailab/blob/main/docs/PREBUILT_INSTALL.md
+
+      - name: Extract OCI metadata (backend)
+        id: meta_backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+          labels: |
+            org.opencontainers.image.title=Uniyra AI Lab (backend)
+            org.opencontainers.image.description=Backend (uvicorn) image for Uniyra AI Lab
+            org.opencontainers.image.vendor=Unreferred
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.source=https://github.com/unreferred/uniyra-ailab
+            org.opencontainers.image.url=https://github.com/unreferred/uniyra-ailab
+            org.opencontainers.image.documentation=https://github.com/unreferred/uniyra-ailab/blob/main/docs/PREBUILT_INSTALL.md
+
+      - name: Build and push frontend (versioned tag only)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.meta_frontend.outputs.tags }}
+          labels: ${{ steps.meta_frontend.outputs.labels }}
+          provenance: false
+
+      - name: Build and push backend (versioned tag only)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta_backend.outputs.tags }}
+          labels: ${{ steps.meta_backend.outputs.labels }}
+          provenance: false
+
+      - name: Verify both versioned images are on GHCR
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          MISSING=0
+          for IMAGE in "${FRONTEND_IMAGE}" "${BACKEND_IMAGE}"; do
+            if docker manifest inspect "${IMAGE}:${TAG}" > /dev/null 2>&1; then
+              echo "${IMAGE}:${TAG} published."
+            else
+              echo "::error::${IMAGE}:${TAG} NOT found on GHCR after push. Versioned publication is incomplete; 'latest' will NOT be advanced."
+              MISSING=1
+            fi
+          done
+          exit "${MISSING}"
+
+  promote:
+    # Advance `latest` for BOTH images only after the versioned images are
+    # verified, and only when this release is the newest stable semver.
+    # The two `latest` pushes are not atomic; any failure is reported as a
+    # partial publication with explicit remediation.
+    name: Promote latest (both images, newest-stable only)
+    runs-on: ubuntu-latest
+    needs: publish
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout (for scripts/semver.sh)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check this release is the newest stable semver
+        id: newest
+        run: |
+          source scripts/semver.sh
+          TAG="${GITHUB_REF_NAME}"
+          # List all stable releases of this repo and keep the semver-max.
+          RELEASES="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --paginate --jq '.[].tag_name' || true)"
+          NEWEST="$(newest_stable "${TAG}" ${RELEASES})"
+          echo "This release: ${TAG}; newest stable release: ${NEWEST}"
+          if [[ "${NEWEST}" != "${TAG}" ]]; then
+            echo "::warning::Release ${TAG} is older than stable ${NEWEST}. Publishing versioned images only; 'latest' stays at ${NEWEST}."
+            echo "promote=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "promote=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Promote latest (frontend + backend)
+        id: promote
+        if: steps.newest.outputs.promote == 'true'
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          set -o pipefail
+          FAILED=""
+          for IMAGE in "${FRONTEND_IMAGE}" "${BACKEND_IMAGE}"; do
+            echo "Re-tagging ${IMAGE}:${TAG} -> ${IMAGE}:latest"
+            if ! docker buildx imagetools create -t "${IMAGE}:latest" "${IMAGE}:${TAG}"; then
+              FAILED="${FAILED} ${IMAGE##*/}:latest"
+            fi
+          done
+          if [[ -n "${FAILED}" ]]; then
+            echo "::error::Partial publication detected: failed to promote:${FAILED}. The two GHCR 'latest' updates are NOT atomic."
+            exit 1
+          fi
+
+      - name: Verify latest matches the versioned images
+        id: verify
+        if: steps.newest.outputs.promote == 'true'
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          MISSING=0
+          for IMAGE in "${FRONTEND_IMAGE}" "${BACKEND_IMAGE}"; do
+            VERSIONED="$(docker buildx imagetools inspect "${IMAGE}:${TAG}" --format '{{.Manifest.Digest}}')"
+            LATEST="$(docker buildx imagetools inspect "${IMAGE}:latest" --format '{{.Manifest.Digest}}')"
+            if [[ -z "${LATEST}" ]]; then
+              echo "::error::${IMAGE}:latest missing after promotion. PARTIAL PUBLICATION: 'latest' is inconsistent across images."
+              MISSING=1
+            elif [[ "${LATEST}" != "${VERSIONED}" ]]; then
+              echo "::error::${IMAGE}:latest digest ${LATEST} != ${IMAGE}:${TAG} digest ${VERSIONED}. PARTIAL PUBLICATION."
+              MISSING=1
+            else
+              echo "${IMAGE}:latest == ${TAG} (digest ${LATEST})"
+            fi
+          done
+          if [[ "${MISSING}" != "0" ]]; then
+            echo "::error::PARTIAL PUBLICATION of 'latest'. Remediation: re-run the 'Release images' promote for ${TAG} (e.g. re-publish the GitHub Release after fixing the failure), or re-point 'latest' manually with: docker buildx imagetools create -t <image>:latest <image>:${TAG} for BOTH images. Until then, installs resolving 'latest' may get an inconsistent frontend/backend pair — pin an explicit vX.Y.Z instead."
+          fi
+          exit "${MISSING}"
+
+      - name: Report partial publication (frontend promoted, backend not)
+        if: failure() && steps.promote.outcome == 'failure'
+        run: |
+          echo "::error::'latest' promotion was PARTIAL (at least one image failed). Do not assume 'latest' is coherent: one image may track ${GITHUB_REF_NAME} while the other tracks an older release. Fix and re-run promotion before directing users to 'latest'."
