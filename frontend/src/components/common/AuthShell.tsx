@@ -3,16 +3,30 @@ import React from "react";
 export default function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-background">
-      {/* Branding panel — dark navy with Uniyra blue lighting, on all themes */}
+      {/* Branding panel — dark navy workstation hero, on all themes */}
       <div className="relative hidden w-[42%] flex-col justify-between overflow-hidden border-r border-white/5 bg-[hsl(222_47%_8%)] p-10 text-white xl:p-14 lg:flex">
-        {/* Ambient Uniyra blue lighting — subtle radial glows, no blur */}
+        {/* Workstation hero photograph — anchored to the bottom so the tablet stays visible */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-12 h-[50%] xl:h-[64%] [mask-image:linear-gradient(to_bottom,transparent_0%,#000_28%,#000_88%,transparent_100%)]"
+        >
+          <img
+            src="/login-hero.webp"
+            alt=""
+            width={1582}
+            height={994}
+            className="h-full w-full select-none object-cover [object-position:66%_100%]"
+            draggable={false}
+          />
+        </div>
+        {/* Readability scrims for the headline (top) and footer (bottom) */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(60% 45% at 85% 12%, hsl(243 75% 59% / 0.22) 0%, transparent 70%)," +
-              "radial-gradient(55% 40% at 10% 95%, hsl(192 91% 36% / 0.14) 0%, transparent 70%)",
+              "linear-gradient(to bottom, hsl(222 47% 8% / 0.92) 0%, hsl(222 47% 8% / 0.55) 38%, transparent 60%)," +
+              "linear-gradient(to top, hsl(222 47% 8% / 0.85) 0%, transparent 14%)",
           }}
         />
 
@@ -28,7 +42,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div className="relative max-w-md">
+        <div className="relative mt-10 max-w-md">
           <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-white">
             Build. Experiment.<br />
             <span className="text-[hsl(var(--brand-indigo))]">Evaluate.</span>
@@ -39,7 +53,9 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           </p>
         </div>
 
-        <p className="relative text-xs text-slate-500">Uniyra AI Lab — the AI R&amp;D workstation</p>
+        <div className="min-h-[180px] flex-1" />
+
+        <p className="relative text-xs text-slate-400">Uniyra AI Lab — the AI R&amp;D workstation</p>
       </div>
 
       {/* Authentication panel */}
