@@ -59,7 +59,54 @@ fi
 
 echo "==> Pulling images (version: ${VERSION})"
 export AILAB_VERSION="${VERSION}"
-if ! docker compose -f "${COMPOSE_FILE}" pull; then
+
+# Temporary credential-free Docker config, used ONLY if the authenticated
+# GHCR pull fails with an authorization error (e.g. stale ~/.docker/config.json
+# credentials from a previous 'docker login ghcr.io'). This never touches the
+# user's real Docker credentials and never runs 'docker logout'.
+ANON_DOCKER_CONFIG=""
+PULL_LOG="$(mktemp "${TMPDIR:-/tmp}/uniyra-pulllog.XXXXXX")"
+cleanup_pull() {
+  rm -f "${PULL_LOG}"
+  if [[ -n "${ANON_DOCKER_CONFIG}" && -d "${ANON_DOCKER_CONFIG}" ]]; then
+    rm -rf "${ANON_DOCKER_CONFIG}"
+  fi
+}
+trap cleanup_pull EXIT
+
+pull_images() {
+  if docker compose -f "${COMPOSE_FILE}" pull >"${PULL_LOG}" 2>&1; then
+    return 0
+  fi
+  # Retry anonymously ONLY on authorization errors and ONLY for the two
+  # public Uniyra GHCR images. Unrelated failures (missing tags, network
+  # outages, invalid manifests, disk errors) are reported unchanged.
+  if ! grep -Eqi 'unauthorized|authentication required|401|403|denied' "${PULL_LOG}"; then
+    cat "${PULL_LOG}" >&2
+    return 1
+  fi
+  echo "Authenticated pull failed with an authorization error; retrying the public Uniyra images anonymously."
+  ANON_DOCKER_CONFIG="$(mktemp -d "${TMPDIR:-/tmp}/uniyra-ghcr-anon.XXXXXX")"
+  chmod 700 "${ANON_DOCKER_CONFIG}"
+  local img ok=0
+  for img in backend frontend; do
+    if DOCKER_CONFIG="${ANON_DOCKER_CONFIG}" docker pull "ghcr.io/unreferred/uniyra-ailab-${img}:${AILAB_VERSION}"; then
+      echo "Pulled ghcr.io/unreferred/uniyra-ailab-${img}:${AILAB_VERSION} anonymously."
+    else
+      ok=1
+    fi
+  done
+  if [[ "${ok}" -ne 0 ]]; then
+    echo "ERROR: Could not pull version '${VERSION}' from GHCR (authenticated and anonymous attempts both failed)." >&2
+    echo "       Check that the release exists: https://github.com/unreferred/uniyra-ailab/releases" >&2
+    echo "       If you previously ran 'docker login ghcr.io' with an expired token, run 'docker logout ghcr.io' and retry." >&2
+    cat "${PULL_LOG}" >&2
+    return 1
+  fi
+  return 0
+}
+
+if ! pull_images; then
   if [[ "${VERSION}" != "latest" ]]; then
     fail "Version '${VERSION}' could not be pulled. Check that the release exists: https://github.com/unreferred/uniyra-ailab/releases"
   else

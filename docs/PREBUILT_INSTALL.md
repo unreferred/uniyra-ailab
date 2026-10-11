@@ -108,6 +108,29 @@ never silently fall back to the mutable `latest`.
 
 Then open **http://localhost:8080** and register the first account.
 
+### Anonymous fallback for stale GHCR credentials
+
+The public Uniyra images on GHCR can be pulled anonymously. If the
+authenticated pull fails with an authorization error (typically stale or
+expired credentials left in `~/.docker/config.json` by a previous
+`docker login ghcr.io`), `install.sh` and `update.sh` automatically retry
+**only the two public Uniyra images** using a temporary, credential-free
+Docker configuration:
+
+- Your real Docker credentials are **never** read, modified, or deleted, and
+  `docker logout` is never invoked by the scripts.
+- The temporary configuration lives in a `mktemp -d` directory with `0700`
+  permissions and is removed when the script exits (success or failure).
+- The fallback applies **only** to `ghcr.io/unreferred/uniyra-ailab-frontend`
+  and `ghcr.io/unreferred/uniyra-ailab-backend` — never to third-party or
+  private images.
+- Unrelated failures (missing tags, network outages, invalid manifests, disk
+  errors) are reported unchanged and never trigger the fallback.
+- If both the authenticated and anonymous attempts fail, the scripts print an
+  actionable error (check the release exists; if you previously ran
+  `docker login ghcr.io` with an expired token, run `docker logout ghcr.io`
+  and retry) and leave `.env`, volumes, and any existing containers untouched.
+
 ## Manual updates
 
 ```bash

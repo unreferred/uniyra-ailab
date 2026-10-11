@@ -76,7 +76,56 @@ read -r -p "Have you backed up MongoDB data before updating? [y/N] " answer
 
 echo "==> Pulling version ${TARGET}"
 export AILAB_VERSION="${TARGET}"
-docker compose -f "${COMPOSE_FILE}" pull || fail "Could not pull '${TARGET}'. Check https://github.com/unreferred/uniyra-ailab/releases for published versions."
+
+# Temporary credential-free Docker config, used ONLY if the authenticated
+# GHCR pull fails with an authorization error (e.g. stale ~/.docker/config.json
+# credentials). Never touches the user's real Docker credentials and never
+# runs 'docker logout'.
+ANON_DOCKER_CONFIG=""
+PULL_LOG="$(mktemp "${TMPDIR:-/tmp}/uniyra-pulllog.XXXXXX")"
+cleanup_pull() {
+  rm -f "${PULL_LOG}"
+  if [[ -n "${ANON_DOCKER_CONFIG}" && -d "${ANON_DOCKER_CONFIG}" ]]; then
+    rm -rf "${ANON_DOCKER_CONFIG}"
+  fi
+}
+trap cleanup_pull EXIT
+
+pull_images() {
+  if docker compose -f "${COMPOSE_FILE}" pull >"${PULL_LOG}" 2>&1; then
+    return 0
+  fi
+  # Retry anonymously ONLY on authorization errors and ONLY for the two
+  # public Uniyra GHCR images. Unrelated failures (missing tags, network
+  # outages, invalid manifests, disk errors) are reported unchanged.
+  if ! grep -Eqi 'unauthorized|authentication required|401|403|denied' "${PULL_LOG}"; then
+    cat "${PULL_LOG}" >&2
+    return 1
+  fi
+  echo "Authenticated pull failed with an authorization error; retrying the public Uniyra images anonymously."
+  ANON_DOCKER_CONFIG="$(mktemp -d "${TMPDIR:-/tmp}/uniyra-ghcr-anon.XXXXXX")"
+  chmod 700 "${ANON_DOCKER_CONFIG}"
+  local img ok=0
+  for img in backend frontend; do
+    if DOCKER_CONFIG="${ANON_DOCKER_CONFIG}" docker pull "ghcr.io/unreferred/uniyra-ailab-${img}:${TARGET}"; then
+      echo "Pulled ghcr.io/unreferred/uniyra-ailab-${img}:${TARGET} anonymously."
+    else
+      ok=1
+    fi
+  done
+  if [[ "${ok}" -ne 0 ]]; then
+    echo "ERROR: Could not pull version '${TARGET}' from GHCR (authenticated and anonymous attempts both failed)." >&2
+    echo "       Check that the release exists: https://github.com/unreferred/uniyra-ailab/releases" >&2
+    echo "       If you previously ran 'docker login ghcr.io' with an expired token, run 'docker logout ghcr.io' and retry." >&2
+    cat "${PULL_LOG}" >&2
+    return 1
+  fi
+  return 0
+}
+
+if ! pull_images; then
+  fail "Could not pull '${TARGET}'. Check https://github.com/unreferred/uniyra-ailab/releases for published versions."
+fi
 
 # Resolve a mutable tag to the concrete release it points to, so updates and
 # rollbacks never depend on 'latest' after resolution, and never mix a
