@@ -186,7 +186,7 @@ beforeEach(() => {
   setupApi();
 });
 
-test("Tool Lab nav entry is visible in the Experiment section", () => {
+test("Tool Lab nav entry is visible in the Build & Configure section", () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <MemoryRouter>
@@ -198,7 +198,7 @@ test("Tool Lab nav entry is visible in the Experiment section", () => {
   const nav = screen.getByTestId("navigation-sidebar");
   const labels = within(nav).getAllByRole("link").map((a) => a.textContent);
   expect(screen.getByTestId("nav-tool-lab")).toHaveTextContent("Tool Lab");
-  const order = ["Arena", "Prompt Lab", "Context Lab", "Agent Lab", "Tool Lab", "Experiments", "Datasets", "Research", "Artifacts", "Findings", "Failures", "Red Team", "Scorecards", "Certification", "Observability", "Home", "Workspace", "Council", "Models"];
+  const order = ["Dashboard", "Workspace", "Models & Providers", "Agent Lab", "Tool Lab", "Context Lab", "Datasets", "Arena", "Prompt Lab", "Experiments", "Research", "Scorecards", "Findings", "Failures", "Red Team", "Certification", "Observability", "Artifacts", "Council"];
   let last = -1;
   for (const label of order) {
     const idx = labels.findIndex((t) => t === label);

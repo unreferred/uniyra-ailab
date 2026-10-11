@@ -70,10 +70,11 @@ function renderSidebar() {
 test("sidebar renders grouped section headers", () => {
   renderSidebar();
   const sections: Array<[string, string]> = [
+    ["nav-section-overview", "Overview"],
+    ["nav-section-build", "Build & Configure"],
     ["nav-section-experiment", "Experiment"],
-    ["nav-section-research", "Research"],
-    ["nav-section-quality", "Quality"],
-    ["nav-section-workspace", "Workspace"],
+    ["nav-section-safety", "Evaluate & Safety"],
+    ["nav-section-operations", "Operations"],
   ];
   for (const [testid, title] of sections) {
     const header = screen.getByTestId(testid);
