@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+build/
+coverage/
+src/__tests__/
+*.log
+Dockerfile
+.dockerignore

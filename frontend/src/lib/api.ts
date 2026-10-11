@@ -48,7 +48,11 @@ import {
 } from "./types";
 
 function resolveBackendUrl(): string {
-  const configured = (process.env.REACT_APP_BACKEND_URL || "").trim().replace(/\/$/, "");
+  const raw = (process.env.REACT_APP_BACKEND_URL || "").trim();
+  // Docker/production: "/" means same-origin (API at /api behind the reverse
+  // proxy), valid for any hostname, port or scheme without a rebuild.
+  if (raw === "/") return "";
+  const configured = raw.replace(/\/$/, "");
   const fallback = configured || "http://localhost:8001";
   if (typeof window === "undefined") return fallback;
   const host = window.location.hostname;

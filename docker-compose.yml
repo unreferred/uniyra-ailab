@@ -1,0 +1,87 @@
+# Uniyra AI Lab — self-hosted Docker Compose installation.
+#
+# Copy .env.example to .env (repo root) before first startup; JWT_SECRET and
+# ENCRYPTION_KEY are mandatory. MongoDB and the backend are NOT published to
+# the host: the only public entrypoint is the frontend on APP_PORT.
+name: uniyra-ailab
+
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - internal
+    # No `ports:` on purpose — reachable only from the backend on the internal network.
+
+  backend:
+    build: ./backend
+    image: uniyra-ailab-backend:latest
+    restart: unless-stopped
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: ${DB_NAME:-omnilab}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -hex 32)}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env (python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")}
+      FRONTEND_URL: http://localhost:${APP_PORT:-8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      OMNILAB_ENV: production
+      # Plain-http local deployment: the browser must be allowed to store the
+      # session cookie. Set COOKIE_SECURE=true only when serving over https.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: lax
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      # Admin seeding is opt-in and requires BOTH values; off by default.
+      ENABLE_ADMIN_SEED: ${ENABLE_ADMIN_SEED:-false}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ATTACHMENT_STORAGE_DIR: /app/data/attachments
+      # The code-interpreter sandbox spawns sibling Docker containers on the
+      # HOST daemon, which a containerized backend cannot do by default.
+      CODE_INTERPRETER_ENABLED: ${CODE_INTERPRETER_ENABLED:-false}
+    volumes:
+      - attachments:/app/data
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/api/', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+    # No `ports:` on purpose — the browser reaches the API only through the
+    # frontend nginx proxy at /api/.
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Same-origin API (/api via nginx): independent of host name and port.
+        REACT_APP_BACKEND_URL: /
+    image: uniyra-ailab-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+
+volumes:
+  mongo_data:
+  attachments:
+
+networks:
+  internal:
+    driver: bridge
