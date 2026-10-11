@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { FlaskRound, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ErrorNote } from "@/components/common/Common";
+import AuthShell from "@/components/common/AuthShell";
 
 export default function Register() {
   const { register } = useAuth();
@@ -23,36 +24,32 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-6">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-5 fade-in-up" data-testid="register-form">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><FlaskRound className="h-5 w-5" /></div>
-          <span className="font-display text-lg font-semibold">Uniyra AI Lab</span>
-        </div>
+    <AuthShell>
+      <form onSubmit={submit} className="w-full max-w-sm space-y-5 fade-in-up motion-reduce:[animation:none]" data-testid="register-form">
         <div className="space-y-1">
           <h2 className="font-display text-2xl font-semibold tracking-tight">Create your lab</h2>
           <p className="text-sm text-muted-foreground">A zero-config Universal provider is set up automatically.</p>
         </div>
         <ErrorNote message={error} />
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Name</label>
-          <Input data-testid="register-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <label htmlFor="register-name" className="text-xs font-medium text-muted-foreground">Name</label>
+          <Input id="register-name" data-testid="register-name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Email</label>
-          <Input data-testid="register-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <label htmlFor="register-email" className="text-xs font-medium text-muted-foreground">Email</label>
+          <Input id="register-email" data-testid="register-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Password</label>
-          <Input data-testid="register-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+          <label htmlFor="register-password" className="text-xs font-medium text-muted-foreground">Password</label>
+          <Input id="register-password" data-testid="register-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
         </div>
         <Button type="submit" data-testid="register-submit" className="w-full" disabled={loading}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-label="Creating account" /> : "Create account"}
         </Button>
         <p className="text-center text-sm text-muted-foreground">
-          Already have an account? <Link to="/login" className="text-brand hover:underline" data-testid="go-login">Sign in</Link>
+          Already have an account? <Link to="/login" className="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" data-testid="go-login">Sign in</Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   );
 }
